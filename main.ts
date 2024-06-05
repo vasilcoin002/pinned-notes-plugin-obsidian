@@ -1,89 +1,84 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import {App, IconName, Plugin, PluginSettingTab, Setting} from "obsidian";
+import {v4 as uuidv4} from "uuid";
 
-// Remember to rename these classes and interfaces!
+export interface IPinnedNote {
+	updateNote(): void;
 
-interface MyPluginSettings {
-	mySetting: string;
+	removeRibbonIcon(): void,
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+class PinnedNote implements IPinnedNote {
+	id: number;
+	icon: IconName;
+	path: string;
+	title: string;
+
+
+	constructor(
+		title: string,
+		path: string,
+		icon: IconName
+	) {
+		this.id = uuidv4()
+		this.icon = icon;
+		this.path = path;
+		this.title = title;
+	}
+
+	removeRibbonIcon(): void {
+	}
+
+	updateNote(): void {
+	}
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export interface IPinnedNotesPluginSettings {
+	pinnedNotes: PinnedNote[]
+}
+
+const DEFAULT_SETTINGS: IPinnedNotesPluginSettings = {
+	pinnedNotes: []
+}
+
+export default class PinnedNotesPlugin extends Plugin {
+	settings: IPinnedNotesPluginSettings
+	ribbonIcons: HTMLElement[]
 
 	async onload() {
 		await this.loadSettings();
-
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		this.addSettingTab(new SettingTab(this.app, this))
 	}
 
-	onunload() {
-
+	async addPinnedNote(note: PinnedNote) {
+		this.settings.pinnedNotes.push(note)
+		await this.saveSettings()
+		await this.loadSettings()
 	}
+
+	async removePinnedNote(noteId: number) {
+		const noteIndex = this.settings.pinnedNotes.findIndex((note) => note.id === noteId)
+		delete this.settings.pinnedNotes[noteIndex]
+		this.settings.pinnedNotes.splice(noteIndex, 1)
+		await this.saveSettings()
+		await this.loadSettings()
+	}
+
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.ribbonIcons?.forEach((ribbonIcon, index) => {
+			ribbonIcon.remove()
+			delete this.ribbonIcons[index]
+		})
+		this.ribbonIcons = this.settings.pinnedNotes.map((note) =>
+			this.addRibbonIcon(
+				note.icon === "" ? "file" : note.icon,
+				note.title,
+				async (e) => {
+					await this.app.workspace.openLinkText(note.path, note.path)
+				}
+			)
+		)
 	}
 
 	async saveSettings() {
@@ -91,44 +86,109 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+class SettingTab extends PluginSettingTab {
+	plugin: PinnedNotesPlugin
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: PinnedNotesPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
-	display(): void {
+	display() {
 		const {containerEl} = this;
+		containerEl.empty()
+		let isCanBeAddedNewNote = true
+		let title = ""
+		let path = ""
+		let icon: IconName = ""
+		let changedTitle = ""
+		let changedPath = ""
+		let changedIcon: string | undefined;
+		const addNoteButton = new Setting(containerEl)
+			.setName("Add pinned note")
+			.setDesc("Provide: 1) file's name that will be displayed on hover 2) path to this file, e.g Folder1/File1 3) Icon name from lucide.dev; if icon won't be provided, default icon \"file\" will be placed instead. RESTART OBSIDIAN AFTER CHANGES")
+		isCanBeAddedNewNote && addNoteButton
+			.addButton((button) => {
+				button.setIcon("plus").onClick(
+					() => {
+						isCanBeAddedNewNote = false
+						this.display()
+						new Setting(containerEl)
+							.setName("File")
+							.addText((text) => text
+								.setPlaceholder("Title")
+								.onChange((value) => title = value)
+							)
+							.addText((text) => text
+								.setPlaceholder("Path")
+								.onChange((value) => path = value)
+							)
+							.addText((text) => text
+								.setPlaceholder("Icon(optional)")
+								.onChange((value) => icon = value)
+							)
+							.addButton((button) => button.setIcon("save").onClick(
+								async () => {
+									if (title.length !== 0 && path.length !== 0) {
+										await this.plugin.addPinnedNote(new PinnedNote(title, path, icon))
+										isCanBeAddedNewNote = true
+										this.display()
+									}
+								}
+							))
+					}
+				)
+			})
 
-		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
+		this.plugin.settings.pinnedNotes.forEach((note, index) => {
+			new Setting(containerEl)
+				.setName("File " + (index + 1))
+				.addText((text) => text
+					.setPlaceholder("Title")
+					.setValue(note.title)
+					.onChange(async (value) => {
+						changedTitle = value;
+					})
+				)
+				.addText((text) => text
+					.setPlaceholder("Path")
+					.setValue(note.path)
+					.onChange(async (value) => {
+						changedPath = value;
+					})
+				)
+				.addText((text) => text
+					.setPlaceholder("Icon(optional)")
+					.setValue(note.icon)
+					.onChange(async (value) => {
+						changedIcon = value;
+					})
+				)
+				.addButton((button) => button.setIcon("save").onClick(
+					async () => {
+						if (changedTitle.length !== 0) {
+							note.title = changedTitle
+							changedTitle = ""
+						}
+						if (changedPath.length !== 0) {
+							note.path = changedPath
+							changedPath = ""
+						}
+						if (changedIcon !== undefined) {
+							note.icon = changedIcon
+							changedIcon = undefined
+						}
+						await this.plugin.saveSettings()
+						await this.plugin.loadSettings()
+						this.display()
+					})
+				)
+				.addButton((button) => button.setIcon("trash-2").setWarning().onClick(
+					async () => {
+						await this.plugin.removePinnedNote(note.id);
+						this.display()
+					}
+				))
+		})
 	}
 }
