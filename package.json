@@ -1,6 +1,6 @@
 {
-	"name": "pinned-notes-plugin",
-	"version": "2.0.0",
+	"name": "pinned-notes",
+	"version": "2.0.1",
 	"description": "Adds the ability of pinning notes which you can use often on Ribbon actions bar (left sidebar)",
 	"main": "main.js",
 	"scripts": {
