@@ -1,7 +1,7 @@
 {
 	"id": "pinned-notes-plugin",
 	"name": "Pinned Notes Plugin",
-	"version": "1.0.0",
+	"version": "2.0.0",
 	"minAppVersion": "0.15.0",
 	"description": "Adds the ability of pinning notes which you can use often on Ribbon actions bar (left sidebar)",
 	"author": "vasilcoin002",
