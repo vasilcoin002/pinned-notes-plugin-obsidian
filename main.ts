@@ -1,4 +1,14 @@
-import {AbstractInputSuggest, App, IconName, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile} from "obsidian";
+import {
+	AbstractInputSuggest,
+	App,
+	IconName,
+	Notice,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+	TAbstractFile,
+	TFile
+} from "obsidian";
 import {v4 as uuidv4} from "uuid";
 
 class PinnedNote {
@@ -89,8 +99,8 @@ class SettingTab extends PluginSettingTab {
 		let title = ""
 		let path = ""
 		let icon: IconName = ""
-		let changedTitle = ""
-		let changedPath = ""
+		let changedTitle: string | undefined;
+		let changedPath: string | undefined;
 		let changedIcon: string | undefined;
 		const addNoteButton = new Setting(containerEl)
 			.setName("Add pinned note")
@@ -124,6 +134,9 @@ class SettingTab extends PluginSettingTab {
 										await this.plugin.addPinnedNote(new PinnedNote(title, path, icon))
 										isCanBeAddedNewNote = true
 										this.display()
+									}
+									else {
+										new Notice("Provide title and path")
 									}
 								}
 							))
@@ -160,18 +173,33 @@ class SettingTab extends PluginSettingTab {
 				)
 				.addButton((button) => button.setIcon("save").onClick(
 					async () => {
-						if (changedTitle.length !== 0) {
-							note.title = changedTitle
-							changedTitle = ""
+						if (
+							(changedTitle === undefined || changedTitle === note.title) &&
+							(changedPath === undefined || changedPath === note.path) &&
+							(changedIcon === undefined || changedIcon === note.icon)
+						) {
+							new Notice("Provide any data")
+							return;
 						}
-						if (changedPath.length !== 0) {
-							note.path = changedPath
-							changedPath = ""
+						if (changedTitle !== undefined) {
+							if (changedTitle.length !== 0) {
+								note.title = changedTitle
+								changedTitle = undefined
+							}
+							else new Notice("Provide title")
+						}
+						if (changedPath !== undefined) {
+							if (changedPath.length !== 0) {
+								note.path = changedPath
+								changedPath = undefined
+							}
+							else new Notice("Provide path")
 						}
 						if (changedIcon !== undefined) {
 							note.icon = changedIcon
 							changedIcon = undefined
 						}
+
 						await this.plugin.saveSettings()
 						await this.plugin.loadSettings()
 						this.display()
@@ -203,7 +231,6 @@ export class FileSuggest extends AbstractInputSuggest<TFile> {
 				files.push(file);
 			}
 		});
-
 		return files;
 	}
 
