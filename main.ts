@@ -1,13 +1,7 @@
-import {App, IconName, Plugin, PluginSettingTab, Setting} from "obsidian";
+import {AbstractInputSuggest, App, IconName, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile} from "obsidian";
 import {v4 as uuidv4} from "uuid";
 
-export interface IPinnedNote {
-	updateNote(): void;
-
-	removeRibbonIcon(): void,
-}
-
-class PinnedNote implements IPinnedNote {
+class PinnedNote {
 	id: number;
 	icon: IconName;
 	path: string;
@@ -23,12 +17,6 @@ class PinnedNote implements IPinnedNote {
 		this.icon = icon;
 		this.path = path;
 		this.title = title;
-	}
-
-	removeRibbonIcon(): void {
-	}
-
-	updateNote(): void {
 	}
 }
 
@@ -75,7 +63,7 @@ export default class PinnedNotesPlugin extends Plugin {
 				note.icon === "" ? "file" : note.icon,
 				note.title,
 				async (e) => {
-					await this.app.workspace.openLinkText(note.path, note.path)
+					await this.app.workspace.openLinkText(note.path, "")
 				}
 			)
 		)
@@ -119,9 +107,12 @@ class SettingTab extends PluginSettingTab {
 								.setPlaceholder("Title")
 								.onChange((value) => title = value)
 							)
-							.addText((text) => text
-								.setPlaceholder("Path")
-								.onChange((value) => path = value)
+							.addText((text) => {
+								new FileSuggest(this.app, text.inputEl);
+									text
+										.setPlaceholder("Path")
+										.onChange((value) => path = value)
+								}
 							)
 							.addText((text) => text
 								.setPlaceholder("Icon(optional)")
@@ -150,12 +141,15 @@ class SettingTab extends PluginSettingTab {
 						changedTitle = value;
 					})
 				)
-				.addText((text) => text
-					.setPlaceholder("Path")
-					.setValue(note.path)
-					.onChange(async (value) => {
-						changedPath = value;
-					})
+				.addText((text) => {
+					new FileSuggest(this.app, text.inputEl)
+					text
+						.setPlaceholder("Path")
+						.setValue(note.path)
+						.onChange(async (value) => {
+							changedPath = value;
+						})
+					}
 				)
 				.addText((text) => text
 					.setPlaceholder("Icon(optional)")
@@ -191,4 +185,50 @@ class SettingTab extends PluginSettingTab {
 				))
 		})
 	}
+}
+
+export class FileSuggest extends AbstractInputSuggest<TFile> {
+	textInputEl: HTMLInputElement;
+
+	getSuggestions(inputStr: string): TFile[] {
+		const abstractFiles = this.app.vault.getAllLoadedFiles();
+		const files: TFile[] = [];
+		const inputLower = inputStr.toLowerCase();
+
+		abstractFiles.forEach((file: TAbstractFile) => {
+			if (
+				file instanceof TFile && ["md", "canvas"].contains(file.extension) &&
+				file.path.toLowerCase().contains(inputLower)
+			) {
+				files.push(file);
+			}
+		});
+
+		return files;
+	}
+
+	renderSuggestion(file: TFile, el: HTMLElement) {
+		if (file.extension == "md") {
+			el.setText(trimFile(file));
+		}
+		else {
+			//we don't use trimFile here as the extension isn't displayed here
+			el.setText(file.path.slice(0, -7))
+			el.insertAdjacentHTML(
+				"beforeend",
+				`<div class="nav-file-tag" style="display:inline-block;vertical-align:middle">canvas</div>`
+			);
+		}
+	}
+
+	selectSuggestion(file: TFile) {
+		this.textInputEl.value = trimFile(file);
+		this.textInputEl.trigger("input");
+		this.close();
+	}
+}
+
+export function trimFile(file: TFile): string {
+	if (!file) return "";
+	return file.extension == "md" ? file.path.slice(0, -3): file.path;
 }
