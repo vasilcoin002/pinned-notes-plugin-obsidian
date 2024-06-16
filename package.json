@@ -1,6 +1,6 @@
 {
 	"name": "pinned-notes",
-	"version": "2.0.2",
+	"version": "2.0.3",
 	"description": "Pin frequently-used notes on Ribbon actions",
 	"main": "main.js",
 	"scripts": {

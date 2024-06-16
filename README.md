@@ -30,3 +30,6 @@ Change the data and click the save button
 
 ## Reporting Issues
 If you find issues with this plugin, please [open an issue](https://github.com/vasilcoin002/pinned-notes-plugin-obsidian/issues/new) and include as much details as possible, including screenshots
+
+# Leave a Tip
+<a href="https://buymeacoffee.com/vasilcoin002" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
