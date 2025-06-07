@@ -2,6 +2,7 @@ import {
 	AbstractInputSuggest,
 	App,
 	IconName,
+	Keymap,
 	Notice,
 	Plugin,
 	PluginSettingTab,
@@ -73,7 +74,11 @@ export default class PinnedNotesPlugin extends Plugin {
 				note.icon === "" ? "file" : note.icon,
 				note.title,
 				async (e) => {
-					await this.app.workspace.openLinkText(note.path, "")
+					await this.app.workspace.openLinkText(
+						note.path,
+						"",
+						e.button == 1 || e.button == 2 || Keymap.isModifier(e, "Mod")
+					);
 				}
 			)
 		)
