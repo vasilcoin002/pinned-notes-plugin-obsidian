@@ -13,21 +13,13 @@ import {
 import {v4 as uuidv4} from "uuid";
 
 class PinnedNote {
-	id: number;
-	icon: IconName;
-	path: string;
-	title: string;
-
-
+	id: string;
 	constructor(
-		title: string,
-		path: string,
-		icon: IconName
+		public readonly title: string,
+		public readonly path: string,
+		public readonly icon: IconName
 	) {
 		this.id = uuidv4()
-		this.icon = icon;
-		this.path = path;
-		this.title = title;
 	}
 }
 
@@ -54,7 +46,7 @@ export default class PinnedNotesPlugin extends Plugin {
 		await this.loadSettings()
 	}
 
-	async removePinnedNote(noteId: number) {
+	async removePinnedNote(noteId: string) {
 		const noteIndex = this.settings.pinnedNotes.findIndex((note) => note.id === noteId)
 		delete this.settings.pinnedNotes[noteIndex]
 		this.settings.pinnedNotes.splice(noteIndex, 1)
@@ -230,7 +222,7 @@ export class FileSuggest extends AbstractInputSuggest<TFile> {
 
 		abstractFiles.forEach((file: TAbstractFile) => {
 			if (
-				file instanceof TFile && ["md", "canvas"].contains(file.extension) &&
+				file instanceof TFile && ["md", "canvas", "base"].contains(file.extension) &&
 				file.path.toLowerCase().contains(inputLower)
 			) {
 				files.push(file);
@@ -242,13 +234,18 @@ export class FileSuggest extends AbstractInputSuggest<TFile> {
 	renderSuggestion(file: TFile, el: HTMLElement) {
 		if (file.extension == "md") {
 			el.setText(trimFile(file));
-		}
-		else {
-			//we don't use trimFile here as the extension isn't displayed here
-			el.setText(file.path.slice(0, -7))
+		} else {
+			if (file.extension == "canvas") {
+				//we don't use trimFile here as the extension isn't displayed here
+				el.setText(file.path.slice(0, -7))
+			} else if (file.extension == "base") {
+				//we don't use trimFile here as the extension isn't displayed here
+				el.setText(file.path.slice(0, -5))
+			}
+				
 			el.insertAdjacentHTML(
 				"beforeend",
-				`<div class="nav-file-tag" style="display:inline-block;vertical-align:middle">canvas</div>`
+				`<div class="nav-file-tag" style="display:inline-block;vertical-align:middle">${file.extension}</div>`
 			);
 		}
 	}
